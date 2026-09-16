@@ -34,6 +34,7 @@ _ORIGINAL_IMPORT = v2.import_ia_studio_project
 _ORIGINAL_SEQUENCE = v2.generate_sequence
 _ORIGINAL_SINGLE = v1.generate_video
 _ORIGINAL_ASSEMBLE = v2._assemble_videos
+_ORIGINAL_EXTRACT = getattr(v2, "_extract_last_frame", None)
 
 
 def _validation_error(errors: list[str]) -> None:
@@ -114,6 +115,22 @@ def _gpu_guard(fn: Callable[..., Any], label: str) -> Callable[..., Any]:
 
     wrapped.__signature__ = inspect.signature(fn)
     return wrapped
+
+
+def validated_extract_last_frame(video_path: str, shot_index: int) -> str:
+    if _ORIGINAL_EXTRACT is None:
+        raise gr.Error("Jalon continuité indisponible : extracteur de frame absent.")
+    extracted = _ORIGINAL_EXTRACT(video_path, shot_index)
+    if not extracted:
+        raise gr.Error(
+            f"Jalon continuité refusé après le plan {shot_index} : impossible d’extraire la dernière frame."
+        )
+    frame = Path(str(extracted)).expanduser()
+    if not frame.is_file() or frame.stat().st_size <= 0:
+        raise gr.Error(
+            f"Jalon continuité refusé après le plan {shot_index} : frame extraite absente ou vide."
+        )
+    return str(frame)
 
 
 def _has_audio_stream(path: str) -> bool:
@@ -222,6 +239,7 @@ def install_runtime_guards() -> None:
         return
     v2.import_ia_studio_project = validated_import
     v2._assemble_videos = validated_assemble
+    v2._extract_last_frame = validated_extract_last_frame
     v2.generate_sequence = _gpu_guard(_validated_sequence, "une nouvelle séquence")
     v1.generate_video = _gpu_guard(_validated_single, "un nouveau plan")
     _INSTALLED = True
