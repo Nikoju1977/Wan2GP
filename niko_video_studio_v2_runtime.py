@@ -10,6 +10,9 @@ import functools
 import inspect
 import math
 import re
+import shutil
+import subprocess
+import tempfile
 import threading
 from pathlib import Path
 from typing import Any, Callable
@@ -113,6 +116,31 @@ def _gpu_guard(fn: Callable[..., Any], label: str) -> Callable[..., Any]:
     return wrapped
 
 
+def _has_audio_stream(path: str) -> bool:
+    ffprobe = shutil.which("ffprobe")
+    if not ffprobe:
+        return False
+    probe = subprocess.run(
+        [
+            ffprobe,
+            "-v", "error",
+            "-select_streams", "a:0",
+            "-show_entries", "stream=index",
+            "-of", "csv=p=0",
+            path,
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return probe.returncode == 0 and bool(probe.stdout.strip())
+
+
+def _ffconcat_line(path: str) -> str:
+    normalized = Path(path).resolve().as_posix()
+    return "file '" + normalized.replace("'", "'\\''") + "'"
+
+
 def validated_assemble(paths: list[str], fps: float) -> str:
     videos = existing_video_paths(paths)
     if len(videos) != len(paths):
@@ -124,11 +152,68 @@ def validated_assemble(paths: list[str], fps: float) -> str:
         )
     if not videos:
         raise RuntimeError("Montage refusé : aucun fichier vidéo valide.")
-    output = _ORIGINAL_ASSEMBLE(videos, float(fps))
-    final_path = Path(str(output)).expanduser()
-    if not final_path.is_file() or final_path.stat().st_size <= 0:
-        raise RuntimeError("Le montage s’est terminé sans produire de fichier vidéo final valide.")
-    return str(final_path)
+    if len(videos) == 1:
+        return videos[0]
+
+    ffmpeg = shutil.which("ffmpeg")
+    if not ffmpeg:
+        raise RuntimeError("FFmpeg est introuvable. Installe FFmpeg ou vérifie le PATH de l’environnement WanGP.")
+
+    output_dir = Path(getattr(v2, "OUTPUT_DIR", Path.cwd() / "outputs" / "niko_video_studio_v2"))
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output = output_dir / f"film-validated-{__import__('datetime').datetime.now().strftime('%Y%m%d-%H%M%S-%f')}.mp4"
+
+    manifest_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            suffix=".ffconcat",
+            prefix="niko-video-",
+            dir=output_dir,
+            encoding="utf-8",
+            delete=False,
+        ) as manifest:
+            manifest.write("ffconcat version 1.0\n")
+            for video in videos:
+                manifest.write(_ffconcat_line(video) + "\n")
+            manifest_path = Path(manifest.name)
+
+        all_have_audio = all(_has_audio_stream(video) for video in videos)
+        command = [
+            ffmpeg,
+            "-y",
+            "-hide_banner",
+            "-loglevel", "error",
+            "-f", "concat",
+            "-safe", "0",
+            "-i", str(manifest_path),
+            "-map", "0:v:0",
+            "-c:v", "libx264",
+            "-pix_fmt", "yuv420p",
+            "-r", f"{float(fps):g}",
+        ]
+        if all_have_audio:
+            command += ["-map", "0:a:0?", "-c:a", "aac", "-b:a", "192k"]
+        else:
+            command += ["-an"]
+        command += ["-movflags", "+faststart", str(output)]
+
+        completed = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if completed.returncode != 0:
+            message = (completed.stderr or completed.stdout or "Erreur FFmpeg inconnue").strip()
+            raise RuntimeError(f"Échec du montage FFmpeg : {message[-1800:]}")
+    finally:
+        if manifest_path is not None:
+            manifest_path.unlink(missing_ok=True)
+
+    if not output.is_file() or output.stat().st_size <= 0:
+        raise RuntimeError("Le montage FFmpeg s’est terminé sans produire de fichier vidéo final valide.")
+    return str(output)
 
 
 def install_runtime_guards() -> None:
