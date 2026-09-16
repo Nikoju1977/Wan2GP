@@ -54,13 +54,19 @@ else
     exit 1
 fi
 
-EXTRA_ARGS=""
+EXTRA_ARGS=()
 if [ -f "scripts/args.txt" ]; then
-    while IFS= read -r line || [ -n "$line" ]; do
-        if [[ "$line" =~ ^[[:space:]]*[^#[:space:]] ]]; then
-            EXTRA_ARGS="$EXTRA_ARGS $line"
-        fi
-    done < "scripts/args.txt"
+    mapfile -d '' -t EXTRA_ARGS < <(
+        python3 - <<'PY'
+import shlex
+from pathlib import Path
+
+args_file = Path("scripts/args.txt")
+text = args_file.read_text(encoding="utf-8")
+for arg in shlex.split(text, comments=True, posix=True):
+    print(arg, end="\0")
+PY
+    )
 fi
 
 if [ "$ENV_TYPE" = "none" ]; then
@@ -71,7 +77,7 @@ fi
 
 while true; do
     echo "[*] Launching WAN2GP..."
-    eval "$PY_CMD wgp.py $EXTRA_ARGS"
+    "$PY_CMD" wgp.py "${EXTRA_ARGS[@]}"
     EXIT_CODE=$?
 
     if [ $EXIT_CODE -eq 42 ]; then
