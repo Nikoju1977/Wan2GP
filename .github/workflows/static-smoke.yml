@@ -23,13 +23,24 @@ jobs:
 
       - name: Python syntax
         run: |
-          python -m py_compile setup.py wgp.py shared/api.py niko_video_studio.py niko_video_studio_v2.py
+          python -m py_compile \
+            setup.py \
+            wgp.py \
+            shared/api.py \
+            niko_video_studio.py \
+            niko_video_studio_v2.py \
+            niko_video_studio_v2_runtime.py \
+            niko_video_project_contract.py
 
       - name: Shell syntax
         run: |
           bash -n scripts/run.sh
           bash -n scripts/run_niko_video_studio.sh
           bash -n scripts/run_niko_video_studio_v2.sh
+
+      - name: Niko Video Studio unit tests
+        run: |
+          python -m unittest discover -s tests -p 'test_niko_video_*.py' -v
 
       - name: Validate V2 bridge contract statically
         run: |
@@ -49,6 +60,17 @@ jobs:
           if missing:
               raise SystemExit(f'Missing V2 contract markers: {missing}')
 
+          runtime = Path('niko_video_studio_v2_runtime.py').read_text(encoding='utf-8')
+          runtime_required = [
+              'validate_project',
+              '_gpu_guard',
+              'validated_assemble',
+              'ffmpeg',
+          ]
+          missing_runtime = [item for item in runtime_required if item not in runtime]
+          if missing_runtime:
+              raise SystemExit(f'Missing runtime safety markers: {missing_runtime}')
+
           v1 = Path('niko_video_studio.py').read_text(encoding='utf-8')
           required_v1 = ['generate_video', 'discover_video_models', 'WanGP']
           missing_v1 = [item for item in required_v1 if item not in v1]
@@ -65,6 +87,8 @@ jobs:
           test -f scripts/run_niko_video_studio.sh
           test -f scripts/run_niko_video_studio_v2.bat
           test -f scripts/run_niko_video_studio_v2.sh
+          grep -q 'niko_video_studio_v2_runtime.py' scripts/run_niko_video_studio_v2.sh
+          grep -q 'niko_video_studio_v2_runtime.py' scripts/run_niko_video_studio_v2.bat
 
       - name: Check WanGP attribution
         run: |
