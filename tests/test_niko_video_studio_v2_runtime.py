@@ -54,6 +54,13 @@ def load_runtime():
         return str(output)
 
     v2._assemble_videos = assemble
+
+    def extract(video_path, shot_index):
+        frame = Path(tempfile.gettempdir()) / f"frame-{shot_index}.png"
+        frame.write_bytes(b"frame")
+        return str(frame)
+
+    v2._extract_last_frame = extract
     v2.main = lambda: "main-ok"
     sys.modules["niko_video_studio_v2"] = v2
 
@@ -133,6 +140,13 @@ class RuntimeTests(unittest.TestCase):
             inspect.signature(self.v1.generate_video),
             inspect.signature(self.rt._validated_single),
         )
+
+    def test_continuity_frame_is_required(self):
+        frame = self.v2._extract_last_frame("unused.mp4", 1)
+        self.assertTrue(Path(frame).is_file())
+        self.rt._ORIGINAL_EXTRACT = lambda *args: None
+        with self.assertRaises(self.gr.Error):
+            self.rt.validated_extract_last_frame("unused.mp4", 2)
 
     def test_assemble_requires_real_video(self):
         with tempfile.TemporaryDirectory() as tmp:
