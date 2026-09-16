@@ -1,0 +1,72 @@
+name: Static smoke checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Python syntax
+        run: |
+          python -m py_compile setup.py wgp.py shared/api.py niko_video_studio.py niko_video_studio_v2.py
+
+      - name: Shell syntax
+        run: |
+          bash -n scripts/run.sh
+          bash -n scripts/run_niko_video_studio.sh
+          bash -n scripts/run_niko_video_studio_v2.sh
+
+      - name: Validate V2 bridge contract statically
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          v2 = Path('niko_video_studio_v2.py').read_text(encoding='utf-8')
+          required = [
+              'niko-video-project/v1',
+              'import_ia_studio_project',
+              'generate_sequence',
+              '_assemble_videos',
+              '_extract_last_frame',
+              'Frame précédente → plan suivant',
+          ]
+          missing = [item for item in required if item not in v2]
+          if missing:
+              raise SystemExit(f'Missing V2 contract markers: {missing}')
+
+          v1 = Path('niko_video_studio.py').read_text(encoding='utf-8')
+          required_v1 = ['generate_video', 'discover_video_models', 'WanGP']
+          missing_v1 = [item for item in required_v1 if item not in v1]
+          if missing_v1:
+              raise SystemExit(f'Missing V1 markers: {missing_v1}')
+          print('Static bridge contract: OK')
+          PY
+
+      - name: Check launchers and documentation exist
+        run: |
+          test -f docs/NIKO_VIDEO_STUDIO.md
+          test -f docs/NIKO_VIDEO_STUDIO_V2.md
+          test -f scripts/run_niko_video_studio.bat
+          test -f scripts/run_niko_video_studio.sh
+          test -f scripts/run_niko_video_studio_v2.bat
+          test -f scripts/run_niko_video_studio_v2.sh
+
+      - name: Check WanGP attribution
+        run: |
+          grep -q 'WanGP' niko_video_studio.py
+          grep -q 'WanGP' niko_video_studio_v2.py
