@@ -40,5 +40,5 @@ PORT="${NIKO_VIDEO_PORT:-7871}"
 PY_CMD="python"
 [ "$ENV_TYPE" = "none" ] && PY_CMD="python3"
 
-echo "[*] Starting Niko Video Studio V2 on http://$HOST:$PORT"
-exec "$PY_CMD" niko_video_studio_v2.py --host "$HOST" --port "$PORT" "$@"
+echo "[*] Starting validated Niko Video Studio V2 on http://$HOST:$PORT"
+exec "$PY_CMD" niko_video_studio_v2_runtime.py --host "$HOST" --port "$PORT" "$@"
