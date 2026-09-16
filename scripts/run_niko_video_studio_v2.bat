@@ -49,7 +49,7 @@ if "!ENV_TYPE!"=="venv" (
 if "%NIKO_VIDEO_HOST%"=="" set "NIKO_VIDEO_HOST=127.0.0.1"
 if "%NIKO_VIDEO_PORT%"=="" set "NIKO_VIDEO_PORT=7871"
 
-echo [*] Starting Niko Video Studio V2 on http://%NIKO_VIDEO_HOST%:%NIKO_VIDEO_PORT%
-python niko_video_studio_v2.py --host "%NIKO_VIDEO_HOST%" --port "%NIKO_VIDEO_PORT%" %*
+echo [*] Starting validated Niko Video Studio V2 on http://%NIKO_VIDEO_HOST%:%NIKO_VIDEO_PORT%
+python niko_video_studio_v2_runtime.py --host "%NIKO_VIDEO_HOST%" --port "%NIKO_VIDEO_PORT%" %*
 
 pause
