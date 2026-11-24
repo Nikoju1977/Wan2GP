@@ -1,0 +1,16 @@
+{
+  "schema": "studio-niko-design.provenance/v1",
+  "publisher": "Studio Niko Design",
+  "account": "Nikoju1977",
+  "repository": "https://github.com/Nikoju1977/Wan2GP",
+  "relationship": "Fork maintained in the Nikoju1977 account; repository provenance only, not a claim of original authorship or rebranding of WanGP.",
+  "upstream": "https://github.com/deepbeepmeep/WanGP",
+  "original_source": "https://github.com/Wan-Video/Wan2.1",
+  "record_date": "2026-11-24",
+  "baseline_git_commit": "23eb706c0a7fe48516c06adcbf4e634105851088",
+  "license_file": "LICENSE.txt",
+  "license": "WanGP Community License 2.0; unchanged. All upstream rights, notices and restrictions remain applicable.",
+  "rights": "Any original contributions by Studio Niko Design are subject to applicable upstream and third-party licensing terms. No ownership of upstream code is claimed.",
+  "integrity_registry": "https://github.com/Nikoju1977/Nikoju1977/tree/main/provenance",
+  "verification": "Git commit identifiers are not personal signatures or independent timestamps."
+}
